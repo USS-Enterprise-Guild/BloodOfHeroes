@@ -87,6 +87,7 @@ end
 local function create_frame()
   local frame = {}
   frame._scripts = {}
+  frame._visible = true
 
   function frame:RegisterEvent()
   end
@@ -95,10 +96,25 @@ local function create_frame()
     self._scripts[name] = fn
   end
 
+  function frame:GetScript(name)
+    return self._scripts[name]
+  end
+
   function frame:Hide()
+    local on_hide = self._scripts["OnHide"]
+    self._visible = false
+    if type(on_hide) == "function" then
+      on_hide(self)
+    end
   end
 
   function frame:Show()
+    local was_visible = self._visible
+    local on_show = self._scripts["OnShow"]
+    self._visible = true
+    if not was_visible and type(on_show) == "function" then
+      on_show(self)
+    end
   end
 
   function frame:SetSize()
@@ -135,7 +151,7 @@ local function create_frame()
   end
 
   function frame:IsVisible()
-    return true
+    return self._visible
   end
 
   function frame:CreateTexture()
@@ -293,6 +309,13 @@ assert_eq(string.find(blood_source, "return #tbl", 1, true), nil, "avoid Lua 5.0
 
 local on_event = BoH and BoH.frame and BoH.frame._scripts and BoH.frame._scripts["OnEvent"]
 assert_eq(type(on_event), "function", "event handler wired")
+set_player_zone("Eastern Plaguelands")
+set_current_map("Eastern Plaguelands")
+WorldMapFrame:Hide()
+on_event(BoH.frame, "PLAYER_ENTERING_WORLD")
+assert_eq(created_world_pin_frames, 0, "no world pins while map hidden")
+WorldMapFrame:Show()
+assert_eq(created_world_pin_frames > 0, true, "world pins render when map is opened")
 on_event(BoH.frame, "WORLD_MAP_UPDATE")
 local first_refresh_pin_count = created_world_pin_frames
 assert_eq(first_refresh_pin_count > 0, true, "creates world map pins on refresh")

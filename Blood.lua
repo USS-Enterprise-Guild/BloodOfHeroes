@@ -588,6 +588,31 @@ local function RefreshCurrentZoneMap()
   UpdateMinimapLoopState()
 end
 
+local function HookWorldMapShow()
+  local existingOnShow
+
+  if BoH.worldMapShowHooked then
+    return
+  end
+
+  if not WorldMapFrame or type(WorldMapFrame.SetScript) ~= "function" then
+    return
+  end
+
+  if type(WorldMapFrame.GetScript) == "function" then
+    existingOnShow = WorldMapFrame:GetScript("OnShow")
+  end
+
+  WorldMapFrame:SetScript("OnShow", function(self)
+    if type(existingOnShow) == "function" then
+      existingOnShow(self)
+    end
+    AddWorldPins()
+  end)
+
+  BoH.worldMapShowHooked = true
+end
+
 local function OnEvent(_, eventName)
   if eventName == "WORLD_MAP_UPDATE" then
     AddWorldPins()
@@ -652,6 +677,7 @@ BoH.frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 BoH.frame:RegisterEvent("ZONE_CHANGED")
 BoH.frame:RegisterEvent("WORLD_MAP_UPDATE")
 BoH.frame:SetScript("OnEvent", OnEvent)
+HookWorldMapShow()
 
 SLASH_BLOOD1 = "/blood"
 SlashCmdList = SlashCmdList or {}
