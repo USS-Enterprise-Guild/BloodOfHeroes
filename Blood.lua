@@ -15,7 +15,7 @@ if BoH.minimapElapsed == nil then
   BoH.minimapElapsed = 0
 end
 
-local getn = table.getn or function(tbl)
+local function getn(tbl)
   local n = 0
   while tbl[n + 1] ~= nil do
     n = n + 1

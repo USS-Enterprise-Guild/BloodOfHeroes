@@ -47,6 +47,26 @@ local function read_file(path)
   return data
 end
 
+local function legacy_table_getn(tbl)
+  local n
+  local i
+
+  if type(tbl) ~= "table" then
+    return 0
+  end
+
+  n = rawget(tbl, "n")
+  if type(n) == "number" then
+    return n
+  end
+
+  i = 0
+  while rawget(tbl, i + 1) ~= nil do
+    i = i + 1
+  end
+  return i
+end
+
 local function resolve_blood_lua_path()
   local candidates = {
     "Blood.lua",
@@ -126,7 +146,8 @@ local function create_frame()
   function frame:SetHeight()
   end
 
-  function frame:SetPoint()
+  function frame:SetPoint(point, relativeTo, relativePoint, xOfs, yOfs)
+    self._lastPoint = { point, relativeTo, relativePoint, xOfs, yOfs }
   end
 
   function frame:ClearAllPoints()
@@ -242,6 +263,7 @@ local player_positions = {
 
 local player_zone_name = "Eastern Plaguelands"
 local browsed_map_name = "Eastern Plaguelands"
+local original_table_getn = table.getn
 
 local function context_key(continent, zone)
   return tostring(continent) .. ":" .. tostring(zone)
@@ -302,6 +324,7 @@ GetPlayerMapPosition = function(unit)
 end
 
 local blood_chunk, blood_load_error = loadfile(resolve_blood_lua_path())
+table.getn = legacy_table_getn
 assert_eq(type(blood_chunk), "function", blood_load_error or "loads Blood.lua chunk")
 blood_chunk("BloodOfHeroes", {})
 local blood_source = read_file(resolve_blood_lua_path()) or ""
@@ -336,6 +359,22 @@ set_current_map("Durotar")
 BoH.frame._scripts["OnUpdate"](BoH.frame, 0.25)
 assert_eq(GetMapInfo(), "Durotar", "minimap update restores browsed map")
 assert_eq((table.getn and table.getn(BoH.minimapPins) or #BoH.minimapPins) > 0, true, "minimap nearby pins while browsing other map")
+local first_pin = BoH.minimapPins[1]
+local first_pin_x = first_pin and first_pin._lastPoint and first_pin._lastPoint[4]
+local first_pin_y = first_pin and first_pin._lastPoint and first_pin._lastPoint[5]
+assert_eq(first_pin ~= nil, true, "minimap pin exists before movement")
+player_positions["Eastern Plaguelands"] = { x = 0.369, y = 0.584 }
+BoH.frame._scripts["OnUpdate"](BoH.frame, 0.25)
+local moved_pin = BoH.minimapPins[1]
+local moved_pin_x = moved_pin and moved_pin._lastPoint and moved_pin._lastPoint[4]
+local moved_pin_y = moved_pin and moved_pin._lastPoint and moved_pin._lastPoint[5]
+assert_eq((moved_pin_x ~= first_pin_x) or (moved_pin_y ~= first_pin_y), true, "minimap pins update while enabled")
+BoH.minimapPinPool.n = 1
+BoH.minimapPinPool[1] = nil
+local stale_len_ok = pcall(function()
+  BoH.frame._scripts["OnUpdate"](BoH.frame, 0.25)
+end)
+assert_eq(stale_len_ok, true, "minimap update tolerates stale pool length metadata")
 
 slash_blood("toggle")
 assert_eq(BoH.enabled, false, "toggle disables")
@@ -366,5 +405,7 @@ assert_eq(core.NormalizeZoneName("Durotar"), nil, "normalize other")
 assert_eq(core.GetZoomRangeYards(0) > core.GetZoomRangeYards(5), true, "zoom range ordering")
 assert_eq(type(BLOOD_OF_HEROES_DATA and BLOOD_OF_HEROES_DATA.EasternPlaguelands), "table", "epl data table exists")
 assert_eq(type(BLOOD_OF_HEROES_DATA and BLOOD_OF_HEROES_DATA.WesternPlaguelands), "table", "wpl data table exists")
+
+table.getn = original_table_getn
 
 print("blood_core_test.lua: PASS")
