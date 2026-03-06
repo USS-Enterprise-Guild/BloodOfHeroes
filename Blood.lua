@@ -3,6 +3,7 @@
 
 BoH = BoH or {}
 BoH.worldPins = BoH.worldPins or {}
+BoH.worldPinPool = BoH.worldPinPool or {}
 if BoH.enabled == nil then
   BoH.enabled = true
 end
@@ -225,15 +226,52 @@ local function ClearArray(array)
   end
 end
 
+local function AcquireWorldPin()
+  local poolSize
+  local pin
+  local hasCustomTexture
+
+  poolSize = getn(BoH.worldPinPool)
+  if poolSize > 0 then
+    pin = BoH.worldPinPool[poolSize]
+    BoH.worldPinPool[poolSize] = nil
+    return pin
+  end
+
+  pin = CreateFrame("Frame", nil, WorldMapDetailFrame)
+  pin:SetWidth(16)
+  pin:SetHeight(16)
+
+  pin.texture = pin:CreateTexture(nil, "OVERLAY")
+  pin.texture:SetAllPoints(pin)
+
+  hasCustomTexture = pin.texture:SetTexture("Interface\\AddOns\\BloodOfHeroes\\Media\\blood-of-heroes-marker.tga")
+  if not hasCustomTexture then
+    pin.texture:SetTexture("Interface\\Icons\\INV_Misc_Map_01")
+  end
+
+  return pin
+end
+
+local function ReleaseWorldPin(pin)
+  if not pin then
+    return
+  end
+
+  if pin.ClearAllPoints then
+    pin:ClearAllPoints()
+  end
+  pin:Hide()
+  table.insert(BoH.worldPinPool, pin)
+end
+
 local function ClearWorldPins()
   local i
   local pin
 
   for i = 1, getn(BoH.worldPins) do
     pin = BoH.worldPins[i]
-    if pin and pin.Hide then
-      pin:Hide()
-    end
+    ReleaseWorldPin(pin)
   end
 
   ClearArray(BoH.worldPins)
@@ -258,8 +296,6 @@ local function AddWorldPins()
   local i
   local loc
   local pin
-  local texture
-  local hasCustomTexture
 
   ClearWorldPins()
 
@@ -293,19 +329,7 @@ local function AddWorldPins()
 
   for i = 1, getn(nodes) do
     loc = nodes[i]
-    pin = CreateFrame("Frame", nil, WorldMapDetailFrame)
-    pin:SetWidth(16)
-    pin:SetHeight(16)
-
-    texture = pin:CreateTexture(nil, "OVERLAY")
-    texture:SetAllPoints(pin)
-
-    hasCustomTexture = texture:SetTexture("Interface\\AddOns\\BloodOfHeroes\\Media\\blood-of-heroes-marker.tga")
-    if not hasCustomTexture then
-      texture:SetTexture("Interface\\Icons\\INV_Misc_Map_01")
-    end
-
-    pin.texture = texture
+    pin = AcquireWorldPin()
     pin:SetPoint("CENTER", WorldMapDetailFrame, "TOPLEFT", (loc.x / 100) * mapWidth, (-loc.y / 100) * mapHeight)
     pin:Show()
 
