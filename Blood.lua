@@ -1,16 +1,29 @@
 -- Blood of Heroes Locator Addon for WoW 1.12.1
 -- World map pins for Eastern/Western Plaguelands only.
 
+local core = BoH_Core or {}
+
 BoH = BoH or {}
 BoH.worldPins = BoH.worldPins or {}
 BoH.worldPinPool = BoH.worldPinPool or {}
+BoH.minimapPins = BoH.minimapPins or {}
+BoH.minimapPinPool = BoH.minimapPinPool or {}
 if BoH.enabled == nil then
   BoH.enabled = true
+end
+if BoH.minimapElapsed == nil then
+  BoH.minimapElapsed = 0
 end
 
 local getn = table.getn or function(tbl)
   return #tbl
 end
+
+local MINIMAP_UPDATE_INTERVAL = 0.2
+local ZONE_DIMENSIONS_YARDS = {
+  EasternPlaguelands = { width = 4032, height = 2688 },
+  WesternPlaguelands = { width = 4295, height = 2863 }
+}
 
 BLOOD_OF_HEROES_DATA = {
   EasternPlaguelands = {
@@ -277,6 +290,57 @@ local function ClearWorldPins()
   ClearArray(BoH.worldPins)
 end
 
+local function AcquireMinimapPin()
+  local poolSize
+  local pin
+  local hasCustomTexture
+
+  poolSize = getn(BoH.minimapPinPool)
+  if poolSize > 0 then
+    pin = BoH.minimapPinPool[poolSize]
+    BoH.minimapPinPool[poolSize] = nil
+    return pin
+  end
+
+  pin = CreateFrame("Frame", nil, Minimap)
+  pin:SetWidth(10)
+  pin:SetHeight(10)
+
+  pin.texture = pin:CreateTexture(nil, "OVERLAY")
+  pin.texture:SetAllPoints(pin)
+
+  hasCustomTexture = pin.texture:SetTexture("Interface\\AddOns\\BloodOfHeroes\\Media\\blood-of-heroes-marker.tga")
+  if not hasCustomTexture then
+    pin.texture:SetTexture("Interface\\Icons\\INV_Misc_Map_01")
+  end
+
+  return pin
+end
+
+local function ReleaseMinimapPin(pin)
+  if not pin then
+    return
+  end
+
+  if pin.ClearAllPoints then
+    pin:ClearAllPoints()
+  end
+  pin:Hide()
+  table.insert(BoH.minimapPinPool, pin)
+end
+
+local function ClearMinimapPins()
+  local i
+  local pin
+
+  for i = 1, getn(BoH.minimapPins) do
+    pin = BoH.minimapPins[i]
+    ReleaseMinimapPin(pin)
+  end
+
+  ClearArray(BoH.minimapPins)
+end
+
 local function GetCurrentZoneKey()
   local mapName
 
@@ -337,12 +401,141 @@ local function AddWorldPins()
   end
 end
 
+local function RefreshMinimapPins()
+  local zoneKey
+  local nodes
+  local zoneSize
+  local px
+  local py
+  local zoom
+  local maxYards
+  local minimapWidth
+  local minimapHeight
+  local minimapRangeX
+  local minimapRangeY
+  local i
+  local loc
+  local nx
+  local ny
+  local dxYards
+  local dyYards
+  local pin
+
+  ClearMinimapPins()
+
+  if not BoH.enabled then
+    return
+  end
+
+  if not Minimap or type(GetPlayerMapPosition) ~= "function" then
+    return
+  end
+
+  if type(core.IsNearby) ~= "function" or type(core.GetEffectiveRangeYards) ~= "function" then
+    return
+  end
+
+  zoneKey = GetCurrentZoneKey()
+  if not zoneKey then
+    return
+  end
+
+  nodes = BLOOD_OF_HEROES_DATA[zoneKey]
+  zoneSize = ZONE_DIMENSIONS_YARDS[zoneKey]
+  if not nodes or not zoneSize then
+    return
+  end
+
+  px, py = GetPlayerMapPosition("player")
+  if not px or not py or (px == 0 and py == 0) then
+    return
+  end
+
+  zoom = 2
+  if Minimap.GetZoom then
+    zoom = Minimap:GetZoom() or 2
+  end
+  maxYards = core.GetEffectiveRangeYards(zoom, BoH.rangeOverrideYards)
+  if not maxYards or maxYards <= 0 then
+    return
+  end
+
+  minimapWidth = Minimap:GetWidth() or 140
+  minimapHeight = Minimap:GetHeight() or 140
+  if minimapWidth <= 0 then
+    minimapWidth = 140
+  end
+  if minimapHeight <= 0 then
+    minimapHeight = 140
+  end
+  minimapRangeX = minimapWidth / 2
+  minimapRangeY = minimapHeight / 2
+
+  for i = 1, getn(nodes) do
+    loc = nodes[i]
+    nx = loc.x / 100
+    ny = loc.y / 100
+    if core.IsNearby(px, py, nx, ny, zoneSize.width, zoneSize.height, maxYards) then
+      dxYards = (nx - px) * zoneSize.width
+      dyYards = (ny - py) * zoneSize.height
+
+      pin = AcquireMinimapPin()
+      pin:SetPoint("CENTER", Minimap, "CENTER", (dxYards / maxYards) * minimapRangeX, (-dyYards / maxYards) * minimapRangeY)
+      pin:Show()
+
+      table.insert(BoH.minimapPins, pin)
+    end
+  end
+end
+
+local function MinimapUpdatesEnabled()
+  if not BoH.enabled then
+    return false
+  end
+  if not Minimap then
+    return false
+  end
+  if type(GetPlayerMapPosition) ~= "function" then
+    return false
+  end
+  if type(core.IsNearby) ~= "function" or type(core.GetEffectiveRangeYards) ~= "function" then
+    return false
+  end
+  return GetCurrentZoneKey() ~= nil
+end
+
+local function OnMinimapUpdate(_, elapsed)
+  BoH.minimapElapsed = BoH.minimapElapsed + (elapsed or 0)
+  if BoH.minimapElapsed < MINIMAP_UPDATE_INTERVAL then
+    return
+  end
+
+  BoH.minimapElapsed = 0
+  RefreshMinimapPins()
+end
+
+local function UpdateMinimapLoopState()
+  if not BoH.frame then
+    return
+  end
+
+  if MinimapUpdatesEnabled() then
+    BoH.frame:SetScript("OnUpdate", OnMinimapUpdate)
+    RefreshMinimapPins()
+  else
+    BoH.frame:SetScript("OnUpdate", nil)
+    BoH.minimapElapsed = 0
+    ClearMinimapPins()
+  end
+end
+
 local function RefreshCurrentZoneMap()
   if type(SetMapToCurrentZone) == "function" then
     SetMapToCurrentZone()
   end
 
   AddWorldPins()
+  UpdateMinimapLoopState()
 end
 
 local function OnEvent(_, eventName)
@@ -357,6 +550,12 @@ local function OnEvent(_, eventName)
 end
 
 local function OnSlashCommand(msg)
+  local rangeResult
+
+  msg = string.lower(msg or "")
+  msg = string.gsub(msg, "^%s+", "")
+  msg = string.gsub(msg, "%s+$", "")
+
   if msg == "toggle" then
     BoH.enabled = not BoH.enabled
     if BoH.enabled then
@@ -365,11 +564,31 @@ local function OnSlashCommand(msg)
     else
       print("|cFFFF0000Blood of Heroes disabled.|r")
       ClearWorldPins()
+      ClearMinimapPins()
+      UpdateMinimapLoopState()
     end
     return
   end
 
-  print("|cFFFFAA00Usage: /blood toggle - Enable/Disable markers.|r")
+  rangeResult = nil
+  if type(core.ParseRangeCommand) == "function" then
+    rangeResult = core.ParseRangeCommand(msg)
+  end
+
+  if rangeResult ~= nil then
+    if rangeResult == false then
+      BoH.rangeOverrideYards = nil
+      print("|cFF00FF00Blood of Heroes range reset to minimap zoom.|r")
+    else
+      BoH.rangeOverrideYards = rangeResult
+      print("|cFF00FF00Blood of Heroes range set to " .. tostring(rangeResult) .. " yards.|r")
+    end
+
+    RefreshCurrentZoneMap()
+    return
+  end
+
+  print("|cFFFFAA00Usage: /blood toggle | /blood range <yards> | /blood range reset|r")
 end
 
 if type(CreateFrame) ~= "function" then

@@ -34,6 +34,25 @@ function core.GetEffectiveRangeYards(zoom, overrideYards)
   return core.GetZoomRangeYards(zoom)
 end
 
+function core.ParseRangeCommand(msg)
+  local n
+
+  if type(msg) ~= "string" then
+    return nil
+  end
+
+  n = string.match(msg, "^range%s+(%d+)$")
+  if n then
+    return tonumber(n)
+  end
+
+  if msg == "range reset" then
+    return false
+  end
+
+  return nil
+end
+
 function core.IsNearby(px, py, nx, ny, zoneWidthYards, zoneHeightYards, maxYards)
   local dx = (nx - px) * zoneWidthYards
   local dy = (ny - py) * zoneHeightYards

@@ -199,6 +199,9 @@ assert_eq(created_world_pin_frames, first_refresh_pin_count, "reuses world map p
 
 assert_eq(core.GetEffectiveRangeYards(2, nil), core.GetZoomRangeYards(2), "uses zoom range by default")
 assert_eq(core.GetEffectiveRangeYards(2, 180), 180, "uses override when present")
+assert_eq(core.ParseRangeCommand("range 175"), 175, "range parser number")
+assert_eq(core.ParseRangeCommand("range reset"), false, "range parser reset")
+assert_eq(core.ParseRangeCommand("range"), nil, "range parser invalid")
 assert_eq(core.IsNearby(0.50, 0.50, 0.51, 0.50, 1000, 1000, 20), true, "near node")
 assert_eq(core.IsNearby(0.50, 0.50, 0.90, 0.90, 1000, 1000, 20), false, "far node")
 
