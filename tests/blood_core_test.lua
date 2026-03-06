@@ -317,6 +317,7 @@ assert_eq(type(BoH.frame._scripts["OnUpdate"]), "function", "minimap loop enable
 
 assert_eq(core.GetEffectiveRangeYards(2, nil), core.GetZoomRangeYards(2), "uses zoom range by default")
 assert_eq(core.GetEffectiveRangeYards(2, 180), 180, "uses override when present")
+assert_eq(core.InterfaceVersionTarget, 11200, "interface version target")
 assert_eq(core.ParseRangeCommand("range 175"), 175, "range parser number")
 assert_eq(core.ParseRangeCommand("range reset"), false, "range parser reset")
 assert_eq(core.ParseRangeCommand("range"), nil, "range parser invalid")

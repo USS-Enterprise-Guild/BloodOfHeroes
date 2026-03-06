@@ -1,4 +1,5 @@
 local core = {}
+core.InterfaceVersionTarget = 11200
 
 local ZOOM_RANGE = {
   [0] = 300,

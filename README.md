@@ -1,13 +1,18 @@
-# Blood of heroes addon
-## World of warcarft classic
+# Blood of Heroes
 
-Toggle Blood of heroes on map
+Blood of Heroes is a strict World of Warcraft 1.12.1 addon build.
+The addon target interface is `11200` (WoW 1.12.1).
 
-Commands:
+## Slash Commands
 
- - /blood toggle (on/off)
+- `/blood toggle`  
+  Enables or disables Blood of Heroes markers and nearby minimap updates.
+- `/blood range <yards>`  
+  Overrides nearby minimap detection radius with a fixed yard value.
+- `/blood range reset`  
+  Clears the manual override and returns nearby minimap detection to zoom-based range.
 
-![Screenshot 2025-03-20 101039](https://github.com/user-attachments/assets/b2ccd5a0-39d5-49c0-8152-29b2144bec4c)
+## Behavior
 
-
-![Screenshot 2025-03-20 094419](https://github.com/user-attachments/assets/3560e2aa-8551-41b3-aba4-c1bef56f5157)
+- World map rendering is focused on Eastern Plaguelands (EPL) and Western Plaguelands (WPL) data.
+- Nearby minimap markers are shown when the player is in EPL/WPL and hidden outside those zones.
