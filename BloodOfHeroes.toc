@@ -1,4 +1,4 @@
-## Interface: 11506
+## Interface: 11200
 ## Title: BloodOfHeroes
 ## Version: 1.0.0
 ## Author: Neok
