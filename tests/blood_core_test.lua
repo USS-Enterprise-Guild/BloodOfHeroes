@@ -36,6 +36,17 @@ local function file_exists(path)
   return false
 end
 
+local function read_file(path)
+  local handle = io.open(path, "r")
+  local data
+  if not handle then
+    return nil
+  end
+  data = handle:read("*a")
+  handle:close()
+  return data
+end
+
 local function resolve_blood_lua_path()
   local candidates = {
     "Blood.lua",
@@ -277,6 +288,8 @@ end
 local blood_chunk, blood_load_error = loadfile(resolve_blood_lua_path())
 assert_eq(type(blood_chunk), "function", blood_load_error or "loads Blood.lua chunk")
 blood_chunk("BloodOfHeroes", {})
+local blood_source = read_file(resolve_blood_lua_path()) or ""
+assert_eq(string.find(blood_source, "return #tbl", 1, true), nil, "avoid Lua 5.0-incompatible # operator")
 
 local on_event = BoH and BoH.frame and BoH.frame._scripts and BoH.frame._scripts["OnEvent"]
 assert_eq(type(on_event), "function", "event handler wired")

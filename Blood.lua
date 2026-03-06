@@ -16,7 +16,11 @@ if BoH.minimapElapsed == nil then
 end
 
 local getn = table.getn or function(tbl)
-  return #tbl
+  local n = 0
+  while tbl[n + 1] ~= nil do
+    n = n + 1
+  end
+  return n
 end
 
 local MINIMAP_UPDATE_INTERVAL = 0.2
