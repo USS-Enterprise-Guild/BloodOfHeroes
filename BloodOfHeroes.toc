@@ -4,4 +4,5 @@
 ## Author: Neok
 ## DefaultState: enabled
 
+BoH_Core.lua
 Blood.lua
