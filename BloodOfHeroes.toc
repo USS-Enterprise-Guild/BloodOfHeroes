@@ -1,6 +1,6 @@
 ## Interface: 11200
 ## Title: BloodOfHeroes
-## Version: 1.0.0
+## Version: 1.12.1
 ## Author: Neok
 ## DefaultState: enabled
 
