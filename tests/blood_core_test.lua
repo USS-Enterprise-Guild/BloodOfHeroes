@@ -141,6 +141,21 @@ function WorldMapFrame:GetMapID()
 end
 
 WorldMapDetailFrame = create_frame()
+Minimap = create_frame()
+function Minimap:GetWidth()
+  return 140
+end
+function Minimap:GetHeight()
+  return 140
+end
+
+local minimap_zoom = 2
+function Minimap:GetZoom()
+  return minimap_zoom
+end
+function Minimap:SetZoom(zoom)
+  minimap_zoom = zoom
+end
 
 local created_world_pin_frames = 0
 
@@ -180,9 +195,83 @@ end
 
 SlashCmdList = {}
 
-SetMapToCurrentZone = noop
+local map_context_by_name = {
+  ["Durotar"] = { continent = 1, zone = 1 },
+  ["Eastern Plaguelands"] = { continent = 2, zone = 1 },
+  ["Western Plaguelands"] = { continent = 2, zone = 2 }
+}
+
+local map_name_by_context = {
+  ["1:1"] = "Durotar",
+  ["2:1"] = "Eastern Plaguelands",
+  ["2:2"] = "Western Plaguelands"
+}
+
+local player_positions = {
+  ["Durotar"] = { x = 0.50, y = 0.50 },
+  ["Eastern Plaguelands"] = { x = 0.359, y = 0.574 },
+  ["Western Plaguelands"] = { x = 0.071, y = 0.507 }
+}
+
+local player_zone_name = "Eastern Plaguelands"
+local browsed_map_name = "Eastern Plaguelands"
+
+local function context_key(continent, zone)
+  return tostring(continent) .. ":" .. tostring(zone)
+end
+
+local function set_current_map(name)
+  if map_context_by_name[name] then
+    browsed_map_name = name
+  end
+end
+
+local function set_player_zone(name)
+  if map_context_by_name[name] then
+    player_zone_name = name
+  end
+end
+
+SetMapToCurrentZone = function()
+  browsed_map_name = player_zone_name
+end
+
+GetCurrentMapContinent = function()
+  return map_context_by_name[browsed_map_name].continent
+end
+
+GetCurrentMapZone = function()
+  return map_context_by_name[browsed_map_name].zone
+end
+
+SetMapZoom = function(continent, zone)
+  local name = map_name_by_context[context_key(continent, zone)]
+  if name then
+    browsed_map_name = name
+  end
+end
+
 GetMapInfo = function()
-  return "Eastern Plaguelands"
+  return browsed_map_name
+end
+
+GetPlayerMapPosition = function(unit)
+  local pos
+
+  if unit ~= "player" then
+    return 0, 0
+  end
+
+  if browsed_map_name ~= player_zone_name then
+    return 0, 0
+  end
+
+  pos = player_positions[player_zone_name]
+  if not pos then
+    return 0, 0
+  end
+
+  return pos.x, pos.y
 end
 
 local blood_chunk, blood_load_error = loadfile(resolve_blood_lua_path())
@@ -196,6 +285,35 @@ local first_refresh_pin_count = created_world_pin_frames
 assert_eq(first_refresh_pin_count > 0, true, "creates world map pins on refresh")
 on_event(BoH.frame, "WORLD_MAP_UPDATE")
 assert_eq(created_world_pin_frames, first_refresh_pin_count, "reuses world map pin frames across refreshes")
+
+local slash_blood = SlashCmdList and SlashCmdList["BLOOD"]
+assert_eq(type(slash_blood), "function", "slash command wired")
+assert_eq(BoH.rangeOverrideYards, nil, "range override starts unset")
+slash_blood("range 175")
+assert_eq(BoH.rangeOverrideYards, 175, "range override set")
+slash_blood("range reset")
+assert_eq(BoH.rangeOverrideYards, nil, "range override reset")
+
+on_event(BoH.frame, "PLAYER_ENTERING_WORLD")
+assert_eq(type(BoH.frame._scripts["OnUpdate"]), "function", "minimap loop enabled in EPL")
+set_current_map("Durotar")
+BoH.frame._scripts["OnUpdate"](BoH.frame, 0.25)
+assert_eq(GetMapInfo(), "Durotar", "minimap update restores browsed map")
+assert_eq((table.getn and table.getn(BoH.minimapPins) or #BoH.minimapPins) > 0, true, "minimap nearby pins while browsing other map")
+
+slash_blood("toggle")
+assert_eq(BoH.enabled, false, "toggle disables")
+assert_eq(BoH.frame._scripts["OnUpdate"], nil, "toggle disables minimap loop")
+slash_blood("toggle")
+assert_eq(BoH.enabled, true, "toggle enables")
+assert_eq(type(BoH.frame._scripts["OnUpdate"]), "function", "toggle re-enables minimap loop")
+
+set_player_zone("Durotar")
+on_event(BoH.frame, "ZONE_CHANGED_NEW_AREA")
+assert_eq(BoH.frame._scripts["OnUpdate"], nil, "minimap loop disabled outside EPL/WPL")
+set_player_zone("Western Plaguelands")
+on_event(BoH.frame, "ZONE_CHANGED_NEW_AREA")
+assert_eq(type(BoH.frame._scripts["OnUpdate"]), "function", "minimap loop enabled in WPL")
 
 assert_eq(core.GetEffectiveRangeYards(2, nil), core.GetZoomRangeYards(2), "uses zoom range by default")
 assert_eq(core.GetEffectiveRangeYards(2, 180), 180, "uses override when present")

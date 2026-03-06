@@ -352,6 +352,53 @@ local function GetCurrentZoneKey()
   return NormalizeZoneName(mapName)
 end
 
+local function SaveMapContext()
+  local continent
+  local zone
+
+  if type(GetCurrentMapContinent) ~= "function" or type(GetCurrentMapZone) ~= "function" then
+    return nil, nil
+  end
+
+  continent = GetCurrentMapContinent()
+  zone = GetCurrentMapZone()
+  return continent, zone
+end
+
+local function RestoreMapContext(continent, zone)
+  if continent == nil or zone == nil then
+    return
+  end
+
+  if type(SetMapZoom) ~= "function" then
+    return
+  end
+
+  SetMapZoom(continent, zone)
+end
+
+local function GetPlayerZoneContext()
+  local previousContinent
+  local previousZone
+  local zoneKey
+  local px
+  local py
+
+  if type(SetMapToCurrentZone) == "function" then
+    previousContinent, previousZone = SaveMapContext()
+    SetMapToCurrentZone()
+  end
+
+  zoneKey = GetCurrentZoneKey()
+  if zoneKey and type(GetPlayerMapPosition) == "function" then
+    px, py = GetPlayerMapPosition("player")
+  end
+
+  RestoreMapContext(previousContinent, previousZone)
+
+  return zoneKey, px, py
+end
+
 local function AddWorldPins()
   local zoneKey
   local nodes
@@ -435,7 +482,7 @@ local function RefreshMinimapPins()
     return
   end
 
-  zoneKey = GetCurrentZoneKey()
+  zoneKey, px, py = GetPlayerZoneContext()
   if not zoneKey then
     return
   end
@@ -446,7 +493,6 @@ local function RefreshMinimapPins()
     return
   end
 
-  px, py = GetPlayerMapPosition("player")
   if not px or not py or (px == 0 and py == 0) then
     return
   end
@@ -501,7 +547,7 @@ local function MinimapUpdatesEnabled()
   if type(core.IsNearby) ~= "function" or type(core.GetEffectiveRangeYards) ~= "function" then
     return false
   end
-  return GetCurrentZoneKey() ~= nil
+  return GetPlayerZoneContext() ~= nil
 end
 
 local function OnMinimapUpdate(_, elapsed)
