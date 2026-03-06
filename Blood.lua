@@ -384,12 +384,16 @@ end
 local function GetPlayerZoneContext()
   local previousContinent
   local previousZone
+  local shouldRestoreMapContext
   local zoneKey
   local px
   local py
 
   if type(SetMapToCurrentZone) == "function" then
-    previousContinent, previousZone = SaveMapContext()
+    shouldRestoreMapContext = WorldMapFrame and WorldMapFrame.IsVisible and WorldMapFrame:IsVisible()
+    if shouldRestoreMapContext then
+      previousContinent, previousZone = SaveMapContext()
+    end
     SetMapToCurrentZone()
   end
 
@@ -398,7 +402,9 @@ local function GetPlayerZoneContext()
     px, py = GetPlayerMapPosition("player")
   end
 
-  RestoreMapContext(previousContinent, previousZone)
+  if shouldRestoreMapContext then
+    RestoreMapContext(previousContinent, previousZone)
+  end
 
   return zoneKey, px, py
 end
