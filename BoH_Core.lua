@@ -8,4 +8,6 @@ function core.GetZoomRangeYards(zoom)
   return 0
 end
 
+BoH_Core = core
+
 return core
